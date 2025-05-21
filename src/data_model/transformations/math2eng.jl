@@ -343,3 +343,15 @@ function _map_math2eng_root!(data_eng::Dict{String,<:Any}, data_math::Dict{Strin
         end
     end
 end
+
+
+function _map_math2eng_prosumer!(data_eng::Dict{String,<:Any}, data_math::Dict{String,<:Any}, map::Dict{String,<:Any})
+    eng_obj = _init_unmap_eng_obj!(data_eng, "prosumer", map)
+    math_obj = _get_math_obj(data_math, map["to"])
+
+    merge!(eng_obj, math_obj)
+
+    if !isempty(eng_obj)
+        data_eng["prosumer"][map["from"]] = eng_obj
+    end
+end

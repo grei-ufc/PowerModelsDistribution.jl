@@ -454,6 +454,72 @@ end
 
 
 """
+    create_prosumer(
+        bus::String,
+        connections::Vector{Int};
+        configuration::ConnConfig=WYE,
+        pg::Union{Vector{<:Real},Missing}=missing,
+        qg::Union{Vector{<:Real},Missing}=missing,
+        pg_lb::Union{Vector{<:Real},Missing}=missing,
+        pg_ub::Union{Vector{<:Real},Missing}=missing,
+        qg_lb::Union{Vector{<:Real},Missing}=missing,
+        qg_ub::Union{Vector{<:Real},Missing}=missing,
+        energy::Real=0.0,
+        energy_ub::Real=0.0,
+        charge_ub::Real=0.0,
+        discharge_ub::Real=0.0,
+        sm_ub::Union{Real,Missing}=missing,
+        cm_ub::Union{Real,Missing}=missing,
+        charge_efficiency::Real=1.0,
+        discharge_efficiency::Real=1.0,
+        qs_lb::Union{Real,Missing}=missing,
+        qs_ub::Union{Real,Missing}=missing,
+        control_mode::ControlMode=FREQUENCYDROOP,
+        status::Status=ENABLED,
+        kwargs...
+    )::Dict{String,Any}
+
+creates a generator object with some defaults
+"""
+function create_prosumer(
+        bus::String,
+        connections::Vector{Int};
+        configuration::ConnConfig=WYE,
+        pg::Union{Vector{<:Real},Missing}=missing,
+        qg::Union{Vector{<:Real},Missing}=missing,
+        pd::Union{Vector{<:Real},Missing}=missing,
+        qd::Union{Vector{<:Real},Missing}=missing,
+        ps::Union{Vector{<:Real},Missing}=missing,
+        qs::Union{Vector{<:Real},Missing}=missing,
+        control_mode::ControlMode=FREQUENCYDROOP,
+        status::Status=ENABLED,
+        kwargs...
+        )::Dict{String,Any}
+
+    n_conductors = length(connections)
+
+    prosumer = Dict{String,Any}(
+        "bus" => bus,
+        "connections" => connections,
+        "configuration" => configuration,
+        "control_mode" => control_mode,
+        "status" => status,
+    )
+
+    for (k,v) in [("pg", pg), ("qg", qg), ("pd", pd), ("qd", qd), ("ps", ps), ("qs", qs)]
+        if !ismissing(v)
+            @assert length(v) == n_conductors
+            prosumer[k] = v
+        end
+    end
+
+    _add_unused_kwargs!(prosumer, kwargs)
+
+    return prosumer
+end
+
+
+"""
     create_xfmrcode(;
         configuration::Union{Vector{ConnConfig},Missing}=missing,
         xsc::Union{Vector{<:Real},Missing}=missing,
@@ -926,6 +992,7 @@ add_voltage_source!(data_eng::Dict{String,<:Any}, id::String, bus::String, conne
 add_generator!(data_eng::Dict{String,<:Any}, id::String, bus::String, connections::Vector{Int}; kwargs...) = add_object!(data_eng, "generator", id, create_generator(bus, connections; kwargs...))
 add_storage!(data_eng::Dict{String,<:Any}, id::String, bus::String, connections::Vector{Int}; kwargs...) = add_object!(data_eng, "storage", id, create_storage(bus, connections; kwargs...))
 add_solar!(data_eng::Dict{String,<:Any}, id::String, bus::String, connections::Vector{Int}; kwargs...) = add_object!(data_eng, "solar", id, create_solar(bus, connections; kwargs...))
+add_prosumer!(data_eng::Dict{String,<:Any}, id::String, bus::String, connections::Vector{Int}; kwargs...) = add_object!(data_eng, "prosumer", id, create_prosumer(bus, connections; kwargs...))
 
 @doc "adds a load to provided ENGINEERING model, see [`create_load`](@ref create_load)" add_load!
 @doc "adds a shunt to provided ENGINEERING model, see [`create_shunt`](@ref create_shunt)" add_shunt!

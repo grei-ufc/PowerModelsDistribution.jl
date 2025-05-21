@@ -241,6 +241,27 @@ const _eng_model_dtypes = Dict{Symbol,Dict{Symbol,Type}}(
         :values => Vector{<:Real},
         :replace => Bool,
     ),
+    :prosumer => Dict{Symbol,Type}(
+        :status => Int,
+        :bus => Any,
+        :connections => Vector{Any},
+        :configuration => String,
+        :pg => Vector{<:Real},
+        :qg => Vector{<:Real},
+        :pg_lb => Vector{<:Real},
+        :pg_ub => Vector{<:Real},
+        :qg_lb => Vector{<:Real},
+        :qg_ub => Vector{<:Real},
+        :energy => Vector{<:Real},
+        :charge_efficiency => Vector{<:Real},
+        :discharge_efficiency => Vector{<:Real},
+        
+    ),
+    # Future Components
+    # :ev => Dict{Symbol,Type}(),
+    # :wind => Dict{Symbol,Type}(),
+    # :autotransformer => Dict{Symbol,Type}(),
+    # :meter => Dict{Symbol,Type}()
 )
 
 "required fields in the engineering data model"

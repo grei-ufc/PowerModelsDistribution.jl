@@ -10,11 +10,12 @@ const _1to1_maps = Dict{String,Vector{String}}(
     "solar" => ["configuration", "connections", "dss"],
     "storage" => ["status", "energy", "configuration", "connections", "dss"],
     "voltage_source" => ["configuration", "connections", "dss"],
+    "prosumer" => ["configuration", "connections", "dss", "energy"],
 )
 
 "list of nodal type elements in the engineering model"
 const _eng_node_elements = String[
-    "load", "shunt", "generator", "solar", "storage", "voltage_source"
+"load", "shunt", "generator", "solar", "storage", "voltage_source", "prosumer"
 ]
 
 "list of edge type elements in the engineering model"
@@ -29,7 +30,7 @@ const pmd_eng_asset_types = String[
 
 "list of nodal type elements in the engineering model"
 const _math_node_elements = String[
-    "load", "shunt", "gen", "storage"
+    "load", "shunt", "gen", "storage", "prosumer"
 ]
 
 "list of edge type elements in the engineering model"
@@ -1001,4 +1002,97 @@ function _map_eng2math_voltage_source!(data_math::Dict{String,<:Any}, data_eng::
             "unmap_function" => "_map_math2eng_voltage_source!",
         ))
     end
+end
+
+"converts engineering prosumer components into mathematical prosumers"
+function _map_eng2math_prosumer!(data_math::Dict{String,<:Any}, data_eng::Dict{String,<:Any}; pass_props::Vector{String}=String[])
+    for (name, eng_obj) in get(data_eng, "prosumer", Dict{Any,Dict{String,Any}}())
+        math_obj = PowerModelsDistribution._init_math_obj("prosumer", name, eng_obj, length(data_math["prosumer"])+1; pass_props=pass_props)
+
+        connections = eng_obj["connections"]
+
+        math_obj["prosumer_bus"] = data_math["bus_lookup"][eng_obj["bus"]]
+        math_obj["configuration"] = get(eng_obj, "configuration", WYE)
+        # Control mode and bus type handling
+        math_obj["prosumer_status"] = status = Int(eng_obj["status"])
+        math_obj["control_mode"] = control_mode = Int(get(eng_obj, "control_mode", FREQUENCYDROOP))
+        bus_type = data_math["bus"]["$(math_obj["prosumer_bus"])"]["bus_type"]
+        data_math["bus"]["$(math_obj["prosumer_bus"])"]["bus_type"] = _compute_bus_type(bus_type, status, control_mode)
+        
+        if control_mode == Int(ISOCHRONOUS) && status == 1
+            data_math["bus"]["$(math_obj["prosumer_bus"])"]["vm"] = eng_obj["vg"]
+            data_math["bus"]["$(math_obj["prosumer_bus"])"]["vmax"] = eng_obj["vg"]
+            data_math["bus"]["$(math_obj["prosumer_bus"])"]["vmin"] = eng_obj["vg"]
+            data_math["bus"]["$(math_obj["prosumer_bus"])"]["va"] = [0.0, -120, 120, zeros(length(data_math["bus"]["$(math_obj["prosumer_bus"])"]) - 3)...][data_math["bus"]["$(math_obj["prosumer_bus"])"]["terminals"]]
+            data_math["bus"]["$(math_obj["prosumer_bus"])"]["bus_type"] = 3
+        end
+
+        # Voltage setpoint
+        if haskey(eng_obj, "vg")
+            math_obj["vg"] = eng_obj["vg"]
+        end
+
+        # Determine number of conductors
+        N = eng_obj["configuration"] == DELTA && length(connections) == 1 ? 1 : _infer_int_dim_unit(eng_obj, false)
+
+        # Power bounds
+        for (fr_k, to_k, def) in [("pg_lb", "pmin", -Inf), ("pg_ub", "pmax", Inf), 
+                                 ("qg_lb", "qmin", -Inf), ("qg_ub", "qmax", Inf)]
+            math_obj[to_k] = haskey(eng_obj, fr_k) ? eng_obj[fr_k] : fill(def, N)
+        end
+
+        # generation
+        math_obj["pg"] = get(eng_obj, "pg", fill(0.0, N))
+        math_obj["qg"] = get(eng_obj, "qg", fill(0.0, N))
+
+        # load
+        math_obj["pd"] = get(eng_obj, "pd_nom", fill(0.0, N))
+        math_obj["qd"] = get(eng_obj, "qd_nom", fill(0.0, N))
+
+        # charge and discharge
+        math_obj["ps"] = get(eng_obj, "ps", fill(0.0, N))
+        math_obj["qs"] = get(eng_obj, "qs", fill(0.0, N))
+
+        # Storage properties
+        math_obj["energy"] = eng_obj["energy"]
+        math_obj["energy_rating"] = eng_obj["energy_ub"]
+        math_obj["charge_rating"] = eng_obj["charge_ub"]
+        math_obj["discharge_rating"] = eng_obj["discharge_ub"]
+        math_obj["charge_efficiency"] = eng_obj["charge_efficiency"] / 100.0
+        math_obj["discharge_efficiency"] = eng_obj["discharge_efficiency"] / 100.0
+        math_obj["thermal_rating"] = get(eng_obj, "sm_ub", Inf)
+        math_obj["cost"] = eng_obj["cost"]
+
+        # prosumer preferences
+        math_obj["a"] = get(eng_obj, "a", 0.0)
+        math_obj["b"] = get(eng_obj, "b", 0.0)
+        math_obj["alpha"] = get(eng_obj, "alpha", 1.0)
+        math_obj["beta"] = get(eng_obj, "beta", 1.0)
+
+        math_obj["cost"] = get(eng_obj, "cost", 1.0)
+
+        # Additional parameters
+        get(eng_obj, "cm_ub", missing) |> x -> !ismissing(x) && (math_obj["cm_ub"] = x)
+        get(eng_obj, "rs", missing) |> x -> !ismissing(x) && (math_obj["r"] = x)
+        get(eng_obj, "xs", missing) |> x -> !ismissing(x) && (math_obj["x"] = x)
+
+        # Add to mathematical model
+        data_math["prosumer"]["$(math_obj["index"])"] = math_obj
+
+        # Update mapping table
+        push!(data_math["map"], Dict{String,Any}(
+            "from" => name,
+            "to" => "prosumer.$(math_obj["index"])",
+            "unmap_function" => "_map_math2eng_prosumer!",
+        ))
+    end
+end
+
+
+function teste()
+    print("teste muito mesmo mesmo")
+end
+
+function teste2()
+    print("teste muito mesmo mesmo mesmo")
 end

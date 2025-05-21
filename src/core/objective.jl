@@ -641,3 +641,19 @@ function _calc_comp_lines(component::Dict{String,<:Any})
 
     return line_data
 end
+
+
+""
+function objective_mc_min_prosumer_cost(pm::AbstractUnbalancedPowerModel; report::Bool=true)
+
+    prosumer_cost = Dict()
+    for (n, nw_ref) in nws(pm)
+        for (i,prosumer) in nw_ref[:prosumer]
+            ps = sum(var(pm, n, :ps, i))
+            prosumer_cost[(n,i)] = prosumer["cost"]*ps
+        end
+    end
+    total_prosumer_storage_cost = sum(sum( prosumer_cost[(n,i)] for (i,prosumer) in nw_ref[:prosumer] ) for (n, nw_ref) in nws(pm))
+
+    return JuMP.@objective(pm.model, Min, total_prosumer_storage_cost)
+end

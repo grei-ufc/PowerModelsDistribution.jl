@@ -1443,3 +1443,33 @@ function variable_mc_slack_bus_power_imaginary(pm::AbstractUnbalancedPowerModel;
 
     report && _IM.sol_component_value(pm, pmd_it_sym, nw, :bus, :q_slack, ids(pm, nw, :bus), q_slack)
 end
+
+
+# prosumer variables
+
+""
+function variable_mc_prosumer_power_real(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    connections = Dict(i => prosumer["connections"] for (i,prosumer) in ref(pm, nw, :prosumer))
+    ps = var(pm, nw)[:ps] = Dict(i => JuMP.@variable(pm.model,
+            [c in connections[i]], base_name="$(nw)_ps_$(i)",
+            start = comp_start_value(ref(pm, nw, :prosumer, i), ["ps_start", "ps"], c, 0)
+        ) for i in ids(pm, nw, :prosumer)
+    )
+    if bounded
+        for (i,prosumer) in ref(pm, nw, :prosumer)
+            if haskey(prosumer, "discharge_rating")
+                for (idx,c) in enumerate(connections[i])
+                    set_lower_bound(ps[i][c], - prosumer["discharge_rating"])
+                end
+            end
+            if haskey(prosumer, "charge_rating")
+                for (idx,c) in enumerate(connections[i])
+                    set_upper_bound(ps[i][c], prosumer["charge_rating"])
+                end
+            end
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :ps, ids(pm, nw, :prosumer), ps)
+end
+
