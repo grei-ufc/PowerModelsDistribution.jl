@@ -1349,3 +1349,102 @@ function constraint_mc_switch_ampacity(pm::AbstractUnbalancedACPModel, nw::Int, 
 
     nothing
 end
+
+
+"Model to consider prosumers (storages will be treated as prosumers)"
+function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedACPModel, nw::Int, i::Int, terminals::Vector{Int}, grounded::Vector{Bool}, bus_arcs::Vector{Tuple{Tuple{Int,Int,Int},Vector{Int}}}, bus_arcs_sw::Vector{Tuple{Tuple{Int,Int,Int},Vector{Int}}}, bus_arcs_trans::Vector{Tuple{Tuple{Int,Int,Int},Vector{Int}}}, bus_gens::Vector{Tuple{Int,Vector{Int}}}, bus_prosumer::Vector{Tuple{Int,Vector{Int}}}, bus_loads::Vector{Tuple{Int,Vector{Int}}}, bus_shunts::Vector{Tuple{Int,Vector{Int}}})
+    vm   = var(pm, nw, :vm, i)
+    va   = var(pm, nw, :va, i)
+    p    = get(var(pm, nw),      :p, Dict()); _check_var_keys(  p, bus_arcs, "active power", "branch")
+    q    = get(var(pm, nw),      :q, Dict()); _check_var_keys(  q, bus_arcs, "reactive power", "branch")
+    pg   = get(var(pm, nw), :pg_bus, Dict()); _check_var_keys( pg, bus_gens, "active power", "generator")
+    qg   = get(var(pm, nw), :qg_bus, Dict()); _check_var_keys( qg, bus_gens, "reactive power", "generator")
+    ps   = get(var(pm, nw),     :ps, Dict()); _check_var_keys( ps, bus_prosumer, "active power", "prosumer")
+    qs   = get(var(pm, nw),     :qs, Dict()); _check_var_keys( qs, bus_prosumer, "reactive power", "prosumer")
+    psw  = get(var(pm, nw),    :psw, Dict()); _check_var_keys(psw, bus_arcs_sw, "active power", "switch")
+    qsw  = get(var(pm, nw),    :qsw, Dict()); _check_var_keys(qsw, bus_arcs_sw, "reactive power", "switch")
+    pt   = get(var(pm, nw),     :pt, Dict()); _check_var_keys( pt, bus_arcs_trans, "active power", "transformer")
+    qt   = get(var(pm, nw),     :qt, Dict()); _check_var_keys( qt, bus_arcs_trans, "reactive power", "transformer")
+    pd   = get(var(pm, nw), :pd_bus, Dict()); _check_var_keys( pd, bus_loads, "active power", "load")
+    qd   = get(var(pm, nw), :qd_bus, Dict()); _check_var_keys( pd, bus_loads, "reactive power", "load")
+
+    Gs, Bs = _build_bus_shunt_matrices(pm, nw, terminals, bus_shunts)
+
+    cstr_p = []
+    cstr_q = []
+    ungrounded_terminals = [(idx,t) for (idx,t) in enumerate(terminals) if !grounded[idx]]
+
+    for (idx,t) in ungrounded_terminals
+        if any(Bs[idx,jdx] != 0 for (jdx, u) in ungrounded_terminals if idx != jdx) || any(Gs[idx,jdx] != 0 for (jdx, u) in ungrounded_terminals if idx != jdx)
+            cp = JuMP.@constraint(pm.model,
+                  sum(  p[a][t] for (a, conns) in bus_arcs if t in conns)
+                + sum(psw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
+                + sum( pt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
+                - sum( pg[g][t] for (g, conns) in bus_gens if t in conns)
+                + sum( ps[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( pd[l][t] for (l, conns) in bus_loads if t in conns)
+                + ( # shunt
+                    +Gs[idx,idx] * vm[t]^2
+                    +sum( Gs[idx,jdx] * vm[t]*vm[u] * cos(va[t]-va[u])
+                         +Bs[idx,jdx] * vm[t]*vm[u] * sin(va[t]-va[u])
+                        for (jdx,u) in ungrounded_terminals if idx != jdx)
+                )
+                ==
+                0.0
+            )
+            push!(cstr_p, cp)
+
+            cq = JuMP.@constraint(pm.model,
+                  sum(  q[a][t] for (a, conns) in bus_arcs if t in conns)
+                + sum(qsw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
+                + sum( qt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
+                - sum( qg[g][t] for (g, conns) in bus_gens if t in conns)
+                + sum( qs[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( qd[l][t] for (l, conns) in bus_loads if t in conns)
+                + ( # shunt
+                    -Bs[idx,idx] * vm[t]^2
+                    -sum( Bs[idx,jdx] * vm[t]*vm[u] * cos(va[t]-va[u])
+                         -Gs[idx,jdx] * vm[t]*vm[u] * sin(va[t]-va[u])
+                         for (jdx,u) in ungrounded_terminals if idx != jdx)
+                )
+                ==
+                0.0
+            )
+            push!(cstr_q, cq)
+        else
+            cp = JuMP.@constraint(pm.model,
+                  sum(  p[a][t] for (a, conns) in bus_arcs if t in conns)
+                + sum(psw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
+                + sum( pt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
+                - sum( pg[g][t] for (g, conns) in bus_gens if t in conns)
+                + sum( ps[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( pd[l][t] for (l, conns) in bus_loads if t in conns)
+                + Gs[idx,idx] * vm[t]^2
+                ==
+                0.0
+            )
+            push!(cstr_p, cp)
+
+            cq = JuMP.@constraint(pm.model,
+                  sum(  q[a][t] for (a, conns) in bus_arcs if t in conns)
+                + sum(qsw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
+                + sum( qt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
+                - sum( qg[g][t] for (g, conns) in bus_gens if t in conns)
+                + sum( qs[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( qd[l][t] for (l, conns) in bus_loads if t in conns)
+                - Bs[idx,idx] * vm[t]^2
+                ==
+                0.0
+            )
+            push!(cstr_q, cq)
+        end
+    end
+
+    con(pm, nw, :lam_kcl_r)[i] = cstr_p
+    con(pm, nw, :lam_kcl_i)[i] = cstr_q
+
+    if _IM.report_duals(pm)
+        sol(pm, nw, :bus, i)[:lam_kcl_r] = cstr_p
+        sol(pm, nw, :bus, i)[:lam_kcl_i] = cstr_q
+    end
+end

@@ -15,7 +15,7 @@ const _1to1_maps = Dict{String,Vector{String}}(
 
 "list of nodal type elements in the engineering model"
 const _eng_node_elements = String[
-"load", "shunt", "generator", "solar", "storage", "voltage_source", "prosumer"
+    "load", "shunt", "generator", "solar", "storage", "voltage_source", "prosumer"
 ]
 
 "list of edge type elements in the engineering model"
@@ -40,7 +40,7 @@ const _math_edge_elements = String[
 
 "list of math asset types that are dispatchable"
 const _math_dispatchable_elements = String[
-    "load", "shunt", "switch"
+    "load", "shunt", "switch", "prosumer"
 ]
 
 "list of all math asset types"
@@ -860,7 +860,7 @@ end
 "converts engineering storage into mathematical storage"
 function _map_eng2math_storage!(data_math::Dict{String,<:Any}, data_eng::Dict{String,<:Any}; pass_props::Vector{String}=String[])
     for (name, eng_obj) in get(data_eng, "storage", Dict{Any,Dict{String,Any}}())
-        math_obj = _init_math_obj("storage", name, eng_obj, length(data_math["storage"])+1; pass_props=pass_props)
+        math_obj = PowerModelsDistribution._init_math_obj("storage", name, eng_obj, length(data_math["storage"])+1; pass_props=pass_props)
 
         math_obj["storage_bus"] = data_math["bus_lookup"][eng_obj["bus"]]
         math_obj["configuration"] = get(eng_obj, "configuration", WYE)
@@ -878,6 +878,7 @@ function _map_eng2math_storage!(data_math::Dict{String,<:Any}, data_eng::Dict{St
         math_obj["x"] = eng_obj["xs"]
         math_obj["p_loss"] = eng_obj["pex"]
         math_obj["q_loss"] = eng_obj["qex"]
+        math_obj["cost"] = eng_obj["cost"]
 
         math_obj["ps"] = get(eng_obj, "ps", 0.0)
         math_obj["qs"] = get(eng_obj, "qs", 0.0)
@@ -1014,7 +1015,7 @@ function _map_eng2math_prosumer!(data_math::Dict{String,<:Any}, data_eng::Dict{S
         math_obj["prosumer_bus"] = data_math["bus_lookup"][eng_obj["bus"]]
         math_obj["configuration"] = get(eng_obj, "configuration", WYE)
         # Control mode and bus type handling
-        math_obj["prosumer_status"] = status = Int(eng_obj["status"])
+        math_obj["status"] = status = Int(eng_obj["status"])
         math_obj["control_mode"] = control_mode = Int(get(eng_obj, "control_mode", FREQUENCYDROOP))
         bus_type = data_math["bus"]["$(math_obj["prosumer_bus"])"]["bus_type"]
         data_math["bus"]["$(math_obj["prosumer_bus"])"]["bus_type"] = _compute_bus_type(bus_type, status, control_mode)
@@ -1032,26 +1033,17 @@ function _map_eng2math_prosumer!(data_math::Dict{String,<:Any}, data_eng::Dict{S
             math_obj["vg"] = eng_obj["vg"]
         end
 
-        # Determine number of conductors
-        N = eng_obj["configuration"] == DELTA && length(connections) == 1 ? 1 : _infer_int_dim_unit(eng_obj, false)
-
-        # Power bounds
-        for (fr_k, to_k, def) in [("pg_lb", "pmin", -Inf), ("pg_ub", "pmax", Inf), 
-                                 ("qg_lb", "qmin", -Inf), ("qg_ub", "qmax", Inf)]
-            math_obj[to_k] = haskey(eng_obj, fr_k) ? eng_obj[fr_k] : fill(def, N)
-        end
-
         # generation
-        math_obj["pg"] = get(eng_obj, "pg", fill(0.0, N))
-        math_obj["qg"] = get(eng_obj, "qg", fill(0.0, N))
+        math_obj["pg"] = get(eng_obj, "pg", fill(0.0, length(connections)))
+        math_obj["qg"] = get(eng_obj, "qg", fill(0.0, length(connections)))
 
         # load
-        math_obj["pd"] = get(eng_obj, "pd_nom", fill(0.0, N))
-        math_obj["qd"] = get(eng_obj, "qd_nom", fill(0.0, N))
+        math_obj["pd"] = get(eng_obj, "pd_nom", fill(0.0, length(connections)))
+        math_obj["qd"] = get(eng_obj, "qd_nom", fill(0.0, length(connections)))
 
         # charge and discharge
-        math_obj["ps"] = get(eng_obj, "ps", fill(0.0, N))
-        math_obj["qs"] = get(eng_obj, "qs", fill(0.0, N))
+        math_obj["ps"] = get(eng_obj, "ps", fill(0.0, length(connections)))
+        math_obj["qs"] = get(eng_obj, "qs", fill(0.0, length(connections)))
 
         # Storage properties
         math_obj["energy"] = eng_obj["energy"]
@@ -1064,10 +1056,14 @@ function _map_eng2math_prosumer!(data_math::Dict{String,<:Any}, data_eng::Dict{S
         math_obj["cost"] = eng_obj["cost"]
 
         # prosumer preferences
-        math_obj["a"] = get(eng_obj, "a", 0.0)
-        math_obj["b"] = get(eng_obj, "b", 0.0)
-        math_obj["alpha"] = get(eng_obj, "alpha", 1.0)
-        math_obj["beta"] = get(eng_obj, "beta", 1.0)
+        math_obj["a"] = get(eng_obj, "a", 0)
+        math_obj["b"] = get(eng_obj, "b", 0)
+        math_obj["alpha"] = get(eng_obj, "alpha", 0)
+        math_obj["beta"] = get(eng_obj, "beta", 0)
+        math_obj["cch"] = get(eng_obj, "a", 0)
+        math_obj["dch"] = get(eng_obj, "b", 0)
+        math_obj["cdis"] = get(eng_obj, "alpha", 0)
+        math_obj["ddis"] = get(eng_obj, "beta", 0)
 
         math_obj["cost"] = get(eng_obj, "cost", 1.0)
 

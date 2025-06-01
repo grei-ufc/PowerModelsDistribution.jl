@@ -24,6 +24,7 @@ const pmd_math_component_status = Dict{String,String}(
     "switch" => "status",
     "branch" => "br_status",
     "transformer" => "status",
+    "prosumer" => "status"
 )
 
 "maps component types to inactive status values"
@@ -36,6 +37,7 @@ const pmd_math_component_status_inactive = Dict{String,Int}(
     "switch" => 0,
     "branch" => 0,
     "transformer" => 0,
+    "prosumer" => 0
 )
 
 "maps neutral conductor index"

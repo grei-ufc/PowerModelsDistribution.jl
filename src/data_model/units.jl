@@ -346,6 +346,10 @@ function _make_math_per_unit!(
         _rebase_pu_switch!(switch, vbase, sbase, sbase_old, voltage_scale_factor)
     end
 
+    for (id, prosumer) in nw["prosumer"]
+        _rebase_pu_prosumer!(prosumer, bus_vbase[string(prosumer["prosumer_bus"])], sbase, sbase_old)
+    end
+
     if haskey(nw, "transformer")
         for (id, trans) in nw["transformer"]
             # voltage base across transformer does not have to be consistent with the ratio!
@@ -740,4 +744,13 @@ function solution_make_si(
     end
 
     return solution_si
+end
+
+"per-unit conversion for prosumer"
+function _rebase_pu_prosumer!(prosumer::Dict{String,<:Any}, vbase::Real, sbase::Real, sbase_old::Real)
+    sbase_scale = sbase_old/sbase
+
+    for key in ["energy", "energy_rating", "charge_rating", "discharge_rating", "thermal_rating", "current_rating", "qmin", "qmax", "p_loss", "q_loss", "ps", "qs", "pg", "qg", "pd", "qd"]
+        _scale(prosumer, key, sbase_scale)
+    end
 end

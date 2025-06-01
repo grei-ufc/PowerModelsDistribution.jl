@@ -1082,20 +1082,6 @@ function variable_mc_storage_power_real(pm::AbstractUnbalancedPowerModel; nw::In
         ) for i in ids(pm, nw, :storage)
     )
 
-    if bounded
-        flow_lb, flow_ub = ref_calc_storage_injection_bounds(ref(pm, nw, :storage), ref(pm, nw, :bus))
-        for i in ids(pm, nw, :storage)
-            for (idx, c) in enumerate(connections[i])
-                if !isinf(flow_lb[i][idx])
-                    set_lower_bound(ps[i][c], flow_lb[i][idx])
-                end
-                if !isinf(flow_ub[i][idx])
-                    set_upper_bound(ps[i][c], flow_ub[i][idx])
-                end
-            end
-        end
-    end
-
     report && _IM.sol_component_value(pm, pmd_it_sym, nw, :storage, :ps, ids(pm, nw, :storage), ps)
 end
 
@@ -1447,6 +1433,14 @@ end
 
 # prosumer variables
 
+
+"create variables for generators, delegate to PowerModels"
+function variable_mc_prosumer_power(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    variable_mc_prosumer_power_real(pm; nw=nw, bounded=bounded, report=report)
+    variable_mc_prosumer_power_imaginary(pm; nw=nw, bounded=bounded, report=report)
+end
+
+
 ""
 function variable_mc_prosumer_power_real(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
     connections = Dict(i => prosumer["connections"] for (i,prosumer) in ref(pm, nw, :prosumer))
@@ -1473,3 +1467,32 @@ function variable_mc_prosumer_power_real(pm::AbstractUnbalancedPowerModel; nw::I
     report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :ps, ids(pm, nw, :prosumer), ps)
 end
 
+
+""
+function variable_mc_prosumer_power_imaginary(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    connections = Dict(i => prosumer["connections"] for (i,prosumer) in ref(pm, nw, :prosumer))
+    qs = var(pm, nw)[:qs] = Dict(i => JuMP.@variable(pm.model,
+            [c in connections[i]], base_name="$(nw)_qs_$(i)",
+            start = comp_start_value(ref(pm, nw, :prosumer, i), ["qs_start", "qs"], c, 0.0)
+        ) for i in ids(pm, nw, :prosumer)
+    )
+
+    if bounded
+        for (i,prosumer) in ref(pm, nw, :prosumer)
+            if haskey(prosumer, "discharge_rating")
+                for (idx,c) in enumerate(connections[i])
+                    set_lower_bound(qs[i][c], - prosumer["discharge_rating"])
+                end
+            end
+            if haskey(prosumer, "charge_rating")
+                for (idx,c) in enumerate(connections[i])
+                    set_upper_bound(qs[i][c], prosumer["charge_rating"])
+                end
+            end
+        end
+    end
+
+    var(pm, nw)[:qs_bus] = Dict{Int, Any}()
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :qs, ids(pm, nw, :prosumer), qs)
+end

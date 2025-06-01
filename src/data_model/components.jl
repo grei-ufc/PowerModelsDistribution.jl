@@ -521,7 +521,7 @@ end
 
 """
     create_xfmrcode(;
-        configuration::Union{Vector{ConnConfig},Missing}=missing,
+        configurations::Union{Vector{ConnConfig},Missing}=missing,
         xsc::Union{Vector{<:Real},Missing}=missing,
         rw::Union{Vector{<:Real},Missing}=missing,
         tm_nom::Union{Vector{<:Real},Missing}=missing,
@@ -535,7 +535,7 @@ end
 creates transformer code with some defaults
 """
 function create_xfmrcode(;
-    configuration::Union{Vector{ConnConfig},Missing}=missing,
+    configurations::Union{Vector{ConnConfig},Missing}=missing,
     xsc::Union{Vector{<:Real},Missing}=missing,
     rw::Union{Vector{<:Real},Missing}=missing,
     tm_nom::Union{Vector{<:Real},Missing}=missing,
@@ -547,7 +547,7 @@ function create_xfmrcode(;
 )::Dict{String,Any}
 
     n_windings = 0
-    for v in [configuration, rw, tm_nom, tm_lb, tm_ub, tm_set, tm_fix]
+    for v in [configurations, rw, tm_nom, tm_lb, tm_ub, tm_set, tm_fix]
         if !ismissing(v)
             n_windings = length(v)
             break
@@ -555,7 +555,7 @@ function create_xfmrcode(;
     end
 
     @assert n_windings >= 2 "Cannot determine valid number of windings"
-    @assert all(length(v) == n_windings for v in [configuration, rw, tm_nom, tm_lb, tm_ub, tm_set, tm_fix]) "Number of windings inconsistent between parameters"
+    @assert all(length(v) == n_windings for v in [configurations, rw, tm_nom, tm_lb, tm_ub, tm_set, tm_fix]) "Number of windings inconsistent between parameters"
 
     n_phases = 0
     for v in [tm_lb, tm_ub, tm_set, tm_fix]
@@ -568,7 +568,7 @@ function create_xfmrcode(;
     @assert n_phases >= 1 "Cannot determine valid number of phases"
 
     eng_obj = Dict{String,Any}(
-        "configuration" => !ismissing(configuration) ? configuration : fill(WYE, n_windings),
+        "configurations" => !ismissing(configurations) ? configurations : fill(WYE, n_windings),
         "xsc" => !ismissing(xsc) ? xsc : zeros(Int(n_windings * (n_windings-1)//2)),
         "rw" => !ismissing(rw) ? rw : zeros(n_windings),
         "tm_nom" => !ismissing(tm_nom) ? tm_nom : ones(n_windings),
@@ -581,9 +581,9 @@ end
 
 """
     create_transformer(
-        bus::Vector{String},
+        buses::Vector{String},
         connections::Vector{Vector{Int}};
-        configuration::Union{Vector{ConnConfig},Missing}=missing,
+        configurations::Union{Vector{ConnConfig},Missing}=missing,
         xfmrcode::Union{String,Missing}=missing,
         xsc::Union{Vector{<:Real},Missing}=missing,
         rw::Union{Vector{<:Real},Missing}=missing,
@@ -603,8 +603,8 @@ end
 
 creates a n-winding transformer object with some defaults
 """
-function create_transformer(bus::Vector{String}, connections::Vector{Vector{Int}};
-    configuration::Union{Vector{ConnConfig},Missing}=missing,
+function create_transformer(buses::Vector{String}, connections::Vector{Vector{Int}};
+    configurations::Union{Vector{ConnConfig},Missing}=missing,
     xfmrcode::Union{String,Missing}=missing,
     xsc::Union{Vector{<:Real},Missing}=missing,
     rw::Union{Vector{<:Real},Missing}=missing,
@@ -622,13 +622,13 @@ function create_transformer(bus::Vector{String}, connections::Vector{Vector{Int}
     kwargs...
         )::Dict{String,Any}
 
-    n_windings = length(bus)
+    n_windings = length(buses)
     n_conductors = length(connections[1])
 
     transformer = Dict{String,Any}(
-        "bus" => bus,
+        "buses" => buses,
         "connections" => connections,
-        "configuration" => !ismissing(configuration) ? configuration : fill(WYE, n_windings),
+        "configurations" => !ismissing(configurations) ? configurations : fill(WYE, n_windings),
         "xsc" => !ismissing(xsc) ? xsc : zeros(Int(n_windings * (n_windings-1)//2)),
         "rw" => !ismissing(rw) ? rw : zeros(n_windings),
         "cmag" => imag,

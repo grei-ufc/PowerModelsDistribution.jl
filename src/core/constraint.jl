@@ -286,12 +286,3 @@ function constraint_mc_branch_flow(pm::AbstractUnbalancedPowerModel, nw::Int, f_
 end
 
 ""
-
-""
-function constraint_prosumer_complementarity_nl(pm::AbstractUnbalancedPowerModel, n::Int, i::Int)
-    sc = var(pm, n, :sc, i)
-    sd = var(pm, n, :sd, i)
-
-    JuMP.@constraint(pm.model, sc*sd == 0.0)
-    nothing
-end

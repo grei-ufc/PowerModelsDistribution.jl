@@ -1127,3 +1127,31 @@ function constraint_mc_switch_ampacity(pm::AbstractUnbalancedPowerModel, i::Int;
     end
     nothing
 end
+
+
+"""
+    constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedPowerModel, i::Int; nw::Int=nw_id_default)::Nothing
+
+Template function for KCL constraints.
+"""
+function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedPowerModel, i::Int; nw::Int=nw_id_default)::Nothing
+    bus = ref(pm, nw, :bus, i)
+    bus_arcs = ref(pm, nw, :bus_arcs_conns_branch, i)
+    bus_arcs_sw = ref(pm, nw, :bus_arcs_conns_switch, i)
+    bus_arcs_trans = ref(pm, nw, :bus_arcs_conns_transformer, i)
+    bus_gens = ref(pm, nw, :bus_conns_gen, i)
+    bus_prosumer = ref(pm, nw, :bus_conns_prosumer, i)
+    bus_loads = ref(pm, nw, :bus_conns_load, i)
+    bus_shunts = ref(pm, nw, :bus_conns_shunt, i)
+
+    if !haskey(con(pm, nw), :lam_kcl_r)
+        con(pm, nw)[:lam_kcl_r] = Dict{Int,Array{JuMP.ConstraintRef}}()
+    end
+
+    if !haskey(con(pm, nw), :lam_kcl_i)
+        con(pm, nw)[:lam_kcl_i] = Dict{Int,Array{JuMP.ConstraintRef}}()
+    end
+
+    constraint_mc_power_balance_prosumer(pm, nw, i, bus["terminals"], bus["grounded"], bus_arcs, bus_arcs_sw, bus_arcs_trans, bus_gens, bus_prosumer, bus_loads, bus_shunts)
+    nothing
+end
