@@ -485,12 +485,12 @@ function create_prosumer(
         bus::String,
         connections::Vector{Int};
         configuration::ConnConfig=WYE,
-        pg::Union{Vector{<:Real},Missing}=missing,
-        qg::Union{Vector{<:Real},Missing}=missing,
-        pd::Union{Vector{<:Real},Missing}=missing,
-        qd::Union{Vector{<:Real},Missing}=missing,
-        ps::Union{Vector{<:Real},Missing}=missing,
-        qs::Union{Vector{<:Real},Missing}=missing,
+        pgp::Union{Real}=missing,
+        qgp::Union{Real}=missing,
+        pdp::Union{Real}=missing,
+        qdp::Union{Real}=missing,
+        psp::Union{Vector{<:Real}}=missing,
+        qsp::Union{Vector{<:Real}}=missing,
         control_mode::ControlMode=FREQUENCYDROOP,
         status::Status=ENABLED,
         kwargs...
@@ -506,13 +506,16 @@ function create_prosumer(
         "status" => status,
     )
 
-    for (k,v) in [("pg", pg), ("qg", qg), ("pd", pd), ("qd", qd), ("ps", ps), ("qs", qs)]
+    for (k,v) in [("psp", psp), ("qsp", qsp)]
         if !ismissing(v)
             @assert length(v) == n_conductors
             prosumer[k] = v
         end
     end
-
+    
+    for (k, v) in [("pgp", pgp), ("qgp", qgp), ("pdp", pdp), ("qdp", qdp)]
+        prosumer[k] = v
+    end
     _add_unused_kwargs!(prosumer, kwargs)
 
     return prosumer

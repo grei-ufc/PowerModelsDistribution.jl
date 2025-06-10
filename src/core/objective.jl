@@ -643,17 +643,36 @@ function _calc_comp_lines(component::Dict{String,<:Any})
 end
 
 
-""
+"gen connections adaptation of min fuel cost polynomial linquad objective"
 function objective_mc_min_prosumer_cost(pm::AbstractUnbalancedPowerModel; report::Bool=true)
+    social_welfare = 0
 
-    prosumer_cost = Dict()
     for (n, nw_ref) in nws(pm)
         for (i,prosumer) in nw_ref[:prosumer]
-            ps = sum(var(pm, n, :ps, i))
-            prosumer_cost[(n,i)] = prosumer["cost"]*ps
+            sdp = sum(var(pm, n, :sdp, i))
+            scp = sum(var(pm, n, :scp, i))
+            pdp = sum(var(pm, n, :pdp, i))  
+            pgp = sum(var(pm, n, :pgp, i))
+            a = prosumer["a"]
+            b = prosumer["b"]
+            alpha = prosumer["alpha"]
+            beta = prosumer["beta"]
+            cch = prosumer["cch"]
+            dch = prosumer["dch"]
+            cdis = prosumer["cdis"]
+            ddis = prosumer["ddis"]
+            social_welfare = social_welfare + (
+                a * pdp -
+                0.5 * b * pdp^2 -
+                alpha * pgp -
+                0.5 * beta * pgp^2 +
+                cch * scp -
+                0.5 * dch * scp^2 -
+                cdis * sdp -
+                0.5 * ddis * sdp^2 -
+                0.0003 * (scp + sdp))
         end
     end
-    total_prosumer_storage_cost = sum(sum( prosumer_cost[(n,i)] for (i,prosumer) in nw_ref[:prosumer] ) for (n, nw_ref) in nws(pm))
 
-    return JuMP.@objective(pm.model, Min, total_prosumer_storage_cost)
+    return JuMP.@objective(pm.model, Max, social_welfare)
 end

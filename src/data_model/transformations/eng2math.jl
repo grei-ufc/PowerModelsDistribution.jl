@@ -1034,16 +1034,24 @@ function _map_eng2math_prosumer!(data_math::Dict{String,<:Any}, data_eng::Dict{S
         end
 
         # generation
-        math_obj["pg"] = get(eng_obj, "pg", fill(0.0, length(connections)))
-        math_obj["qg"] = get(eng_obj, "qg", fill(0.0, length(connections)))
+        math_obj["pgp"] = get(eng_obj, "pgp", 0.0)
+        math_obj["qgp"] = get(eng_obj, "qgp", 0.0)
+        math_obj["pgmin"] = get(eng_obj, "pgmin", 0.0)
+        math_obj["qgmin"] = get(eng_obj, "qgmin", 0.0)
+        math_obj["pgmax"] = get(eng_obj, "pgmax", Inf)
+        math_obj["qgmax"] = get(eng_obj, "qgmax", 0.0)
 
         # load
-        math_obj["pd"] = get(eng_obj, "pd_nom", fill(0.0, length(connections)))
-        math_obj["qd"] = get(eng_obj, "qd_nom", fill(0.0, length(connections)))
+        math_obj["pdp"] = get(eng_obj, "pdp", 0.0)
+        math_obj["qdp"] = get(eng_obj, "qdp", 0.0)
+        math_obj["pdmin"] = get(eng_obj, "pdmin", 0.0)
+        math_obj["qdmin"] = get(eng_obj, "qdmin", 0.0)
+        math_obj["pdmax"] = get(eng_obj, "pdmax", Inf)
+        math_obj["qdmax"] = get(eng_obj, "qdmax", 0.0)
 
         # charge and discharge
-        math_obj["ps"] = get(eng_obj, "ps", fill(0.0, length(connections)))
-        math_obj["qs"] = get(eng_obj, "qs", fill(0.0, length(connections)))
+        math_obj["psp"] = get(eng_obj, "psp", 0.0)
+        math_obj["qsp"] = get(eng_obj, "qsp", 0.0)
 
         # Storage properties
         math_obj["energy"] = eng_obj["energy"]
@@ -1053,19 +1061,18 @@ function _map_eng2math_prosumer!(data_math::Dict{String,<:Any}, data_eng::Dict{S
         math_obj["charge_efficiency"] = eng_obj["charge_efficiency"] / 100.0
         math_obj["discharge_efficiency"] = eng_obj["discharge_efficiency"] / 100.0
         math_obj["thermal_rating"] = get(eng_obj, "sm_ub", Inf)
-        math_obj["cost"] = eng_obj["cost"]
 
         # prosumer preferences
         math_obj["a"] = get(eng_obj, "a", 0)
         math_obj["b"] = get(eng_obj, "b", 0)
         math_obj["alpha"] = get(eng_obj, "alpha", 0)
         math_obj["beta"] = get(eng_obj, "beta", 0)
-        math_obj["cch"] = get(eng_obj, "a", 0)
-        math_obj["dch"] = get(eng_obj, "b", 0)
-        math_obj["cdis"] = get(eng_obj, "alpha", 0)
-        math_obj["ddis"] = get(eng_obj, "beta", 0)
+        math_obj["cch"] = get(eng_obj, "cch", 0)
+        math_obj["dch"] = get(eng_obj, "dch", 0)
+        math_obj["cdis"] = get(eng_obj, "cdis", 0)
+        math_obj["ddis"] = get(eng_obj, "ddis", 0)
+        math_obj["p_shared"] = get(eng_obj, "p_shared", 0)
 
-        math_obj["cost"] = get(eng_obj, "cost", 1.0)
 
         # Additional parameters
         get(eng_obj, "cm_ub", missing) |> x -> !ismissing(x) && (math_obj["cm_ub"] = x)

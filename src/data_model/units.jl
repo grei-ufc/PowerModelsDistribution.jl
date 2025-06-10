@@ -750,7 +750,13 @@ end
 function _rebase_pu_prosumer!(prosumer::Dict{String,<:Any}, vbase::Real, sbase::Real, sbase_old::Real)
     sbase_scale = sbase_old/sbase
 
-    for key in ["energy", "energy_rating", "charge_rating", "discharge_rating", "thermal_rating", "current_rating", "qmin", "qmax", "p_loss", "q_loss", "ps", "qs", "pg", "qg", "pd", "qd"]
+    for key in ["energy", "energy_rating",
+                "charge_rating", "discharge_rating",
+                "thermal_rating", "current_rating",
+                "qdmin", "qdmax", "p_loss", "q_loss",
+                "psp", "qsp", "pgp", "qgp", "pdp", "qdp",
+                "p_shared", "pdmin", "pdmax", "pgmin", "pgmax"]
+                #"a", "b", "alpha", "beta", "cch", "dch", "cdis","ddis"]
         _scale(prosumer, key, sbase_scale)
     end
 end

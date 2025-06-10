@@ -1155,3 +1155,34 @@ function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedPowerModel, 
     constraint_mc_power_balance_prosumer(pm, nw, i, bus["terminals"], bus["grounded"], bus_arcs, bus_arcs_sw, bus_arcs_trans, bus_gens, bus_prosumer, bus_loads, bus_shunts)
     nothing
 end
+
+
+"""
+    constraint_prosumer_state(pm::AbstractUnbalancedPowerModel, i::Int; nw::Int=nw_id_default)::Nothing
+
+Template function for storage state constraints (non multinetwork)
+"""
+function constraint_prosumer_state(pm::AbstractUnbalancedPowerModel, i::Int; nw::Int=nw_id_default)::Nothing
+    prosumer = ref(pm, nw, :prosumer, i)
+
+    if haskey(ref(pm, nw), :time_elapsed)
+        time_elapsed = ref(pm, nw, :time_elapsed)
+    else
+        @warn "network data should specify time_elapsed in hours, using 1.0 as a default"
+        time_elapsed = 1.0
+    end
+
+    constraint_prosumer_state_initial(pm, nw, i, prosumer["energy"], prosumer["charge_efficiency"], prosumer["discharge_efficiency"], time_elapsed)
+    nothing
+end
+
+
+function constraint_prosumer_complementarity_nl(pm::AbstractUnbalancedPowerModel, i::Int; nw::Int=nw_id_default)::Nothing
+    constraint_prosumer_complementarity_nl(pm, nw, i)
+    nothing
+end
+
+function constraint_prosumer_internal_balance(pm::AbstractUnbalancedPowerModel, i::Int; nw::Int=nw_id_default)::Nothing
+    constraint_prosumer_internal_balance(pm, nw, i)
+    nothing
+end

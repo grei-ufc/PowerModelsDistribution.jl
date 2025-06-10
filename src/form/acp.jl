@@ -1359,8 +1359,8 @@ function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedACPModel, nw
     q    = get(var(pm, nw),      :q, Dict()); _check_var_keys(  q, bus_arcs, "reactive power", "branch")
     pg   = get(var(pm, nw), :pg_bus, Dict()); _check_var_keys( pg, bus_gens, "active power", "generator")
     qg   = get(var(pm, nw), :qg_bus, Dict()); _check_var_keys( qg, bus_gens, "reactive power", "generator")
-    ps   = get(var(pm, nw),     :ps, Dict()); _check_var_keys( ps, bus_prosumer, "active power", "prosumer")
-    qs   = get(var(pm, nw),     :qs, Dict()); _check_var_keys( qs, bus_prosumer, "reactive power", "prosumer")
+    psp   = get(var(pm, nw),     :psp, Dict()); _check_var_keys( psp, bus_prosumer, "prosumer active power", "prosumer")
+    qsp   = get(var(pm, nw),     :qsp, Dict()); _check_var_keys( qsp, bus_prosumer, "prosumer reactive power", "prosumer")
     psw  = get(var(pm, nw),    :psw, Dict()); _check_var_keys(psw, bus_arcs_sw, "active power", "switch")
     qsw  = get(var(pm, nw),    :qsw, Dict()); _check_var_keys(qsw, bus_arcs_sw, "reactive power", "switch")
     pt   = get(var(pm, nw),     :pt, Dict()); _check_var_keys( pt, bus_arcs_trans, "active power", "transformer")
@@ -1381,7 +1381,7 @@ function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedACPModel, nw
                 + sum(psw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
                 + sum( pt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
                 - sum( pg[g][t] for (g, conns) in bus_gens if t in conns)
-                + sum( ps[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( psp[p][t] for (p, conns) in bus_prosumer if t in conns)
                 + sum( pd[l][t] for (l, conns) in bus_loads if t in conns)
                 + ( # shunt
                     +Gs[idx,idx] * vm[t]^2
@@ -1399,7 +1399,7 @@ function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedACPModel, nw
                 + sum(qsw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
                 + sum( qt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
                 - sum( qg[g][t] for (g, conns) in bus_gens if t in conns)
-                + sum( qs[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( qsp[p][t] for (p, conns) in bus_prosumer if t in conns)
                 + sum( qd[l][t] for (l, conns) in bus_loads if t in conns)
                 + ( # shunt
                     -Bs[idx,idx] * vm[t]^2
@@ -1417,7 +1417,7 @@ function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedACPModel, nw
                 + sum(psw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
                 + sum( pt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
                 - sum( pg[g][t] for (g, conns) in bus_gens if t in conns)
-                + sum( ps[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( psp[p][t] for (p, conns) in bus_prosumer if t in conns)
                 + sum( pd[l][t] for (l, conns) in bus_loads if t in conns)
                 + Gs[idx,idx] * vm[t]^2
                 ==
@@ -1430,7 +1430,7 @@ function constraint_mc_power_balance_prosumer(pm::AbstractUnbalancedACPModel, nw
                 + sum(qsw[a][t] for (a, conns) in bus_arcs_sw if t in conns)
                 + sum( qt[a][t] for (a, conns) in bus_arcs_trans if t in conns)
                 - sum( qg[g][t] for (g, conns) in bus_gens if t in conns)
-                + sum( qs[s][t] for (s, conns) in bus_prosumer if t in conns)
+                + sum( qsp[p][t] for (p, conns) in bus_prosumer if t in conns)
                 + sum( qd[l][t] for (l, conns) in bus_loads if t in conns)
                 - Bs[idx,idx] * vm[t]^2
                 ==

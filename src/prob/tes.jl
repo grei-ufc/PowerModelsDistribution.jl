@@ -12,10 +12,10 @@ function build_mc_tes_opf(pm::AbstractUnbalancedPowerModel)
     variable_mc_switch_power(pm)
     variable_mc_generator_power(pm)
     variable_mc_load_power(pm)
-    variable_mc_storage_power(pm)
     variable_mc_prosumer_power(pm)
 
     constraint_mc_model_voltage(pm)
+    constraint_network_prosumer_share(pm)
 
     for i in ids(pm, :ref_buses)
         constraint_mc_theta_ref(pm, i)
@@ -33,6 +33,12 @@ function build_mc_tes_opf(pm::AbstractUnbalancedPowerModel)
 
     for i in ids(pm, :bus)
         constraint_mc_power_balance_prosumer(pm, i)
+    end
+
+    for i in ids(pm, :prosumer)
+        constraint_prosumer_state(pm, i)
+        constraint_prosumer_internal_balance(pm, i)
+        constraint_prosumer_complementarity_nl(pm, i)
     end
 
     for i in ids(pm, :branch)

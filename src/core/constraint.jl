@@ -286,3 +286,44 @@ function constraint_mc_branch_flow(pm::AbstractUnbalancedPowerModel, nw::Int, f_
 end
 
 ""
+function constraint_prosumer_state_initial(pm::AbstractUnbalancedPowerModel, n::Int, i::Int, energy::Real, charge_eff::Real, discharge_eff::Real, time_elapsed::Real)
+    scp = var(pm, n, :scp, i)
+    sdp = var(pm, n, :sdp, i)
+    sep = var(pm, n, :sep, i)
+
+    JuMP.@constraint(pm.model, sep - energy == time_elapsed*(charge_eff*scp - sdp/discharge_eff))
+    nothing
+end
+
+
+""
+function constraint_prosumer_complementarity_nl(pm::AbstractUnbalancedPowerModel, n::Int, i::Int)
+    scp = var(pm, n, :scp, i)
+    sdp = var(pm, n, :sdp, i)
+
+    JuMP.@constraint(pm.model, scp*sdp == 0.0)
+    nothing
+end
+
+
+""
+function constraint_prosumer_internal_balance(pm::AbstractUnbalancedPowerModel, n::Int, i::Int)
+    scp = var(pm, n, :scp, i)
+    sdp = var(pm, n, :sdp, i)
+    pdp = var(pm, n, :pdp, i)
+    pgp = var(pm, n, :pgp, i)
+    p_shared = var(pm, n, :p_shared, i)
+    psp = var(pm, n, :psp, i)
+
+    JuMP.@constraint(pm.model, p_shared == sum(psp))
+    JuMP.@constraint(pm.model, pgp + sdp + p_shared == pdp + scp)
+
+    nothing
+end
+
+function constraint_network_prosumer_share(pm::AbstractUnbalancedPowerModel)
+    p_shared = var(pm, :p_shared)
+
+    JuMP.@constraint(pm.model, sum(p_shared) == 0)
+    nothing
+end

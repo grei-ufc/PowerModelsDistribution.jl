@@ -1430,69 +1430,199 @@ function variable_mc_slack_bus_power_imaginary(pm::AbstractUnbalancedPowerModel;
     report && _IM.sol_component_value(pm, pmd_it_sym, nw, :bus, :q_slack, ids(pm, nw, :bus), q_slack)
 end
 
-
-# prosumer variables
-
+######################
+# prosumer variables #
+######################
 
 "create variables for generators, delegate to PowerModels"
 function variable_mc_prosumer_power(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
-    variable_mc_prosumer_power_real(pm; nw=nw, bounded=bounded, report=report)
-    variable_mc_prosumer_power_imaginary(pm; nw=nw, bounded=bounded, report=report)
+    variable_mc_prosumer_storage_power_real(pm; nw=nw, bounded=bounded, report=report)
+    variable_mc_prosumer_storage_power_imaginary(pm; nw=nw, bounded=bounded, report=report)
+    variable_mc_prosumer_gen_power_real(pm; nw=nw, bounded=bounded, report=report)
+    variable_mc_prosumer_gen_power_imaginary(pm; nw=nw, bounded=bounded, report=report)
+    variable_prosumer_load_real(pm; nw=nw, bounded=bounded, report=report)
+    variable_prosumer_load_imaginary(pm; nw=nw, bounded=bounded, report=report)
+    variable_prosumer_energy(pm; nw=nw, bounded=bounded, report=report)
+    variable_prosumer_charge(pm; nw=nw, bounded=bounded, report=report)
+    variable_prosumer_discharge(pm; nw=nw, bounded=bounded, report=report)
+    variable_prosumer_shared_energy(pm; nw=nw, bounded=bounded, report=report)
+
 end
 
 
 ""
-function variable_mc_prosumer_power_real(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+function variable_mc_prosumer_storage_power_real(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
     connections = Dict(i => prosumer["connections"] for (i,prosumer) in ref(pm, nw, :prosumer))
-    ps = var(pm, nw)[:ps] = Dict(i => JuMP.@variable(pm.model,
-            [c in connections[i]], base_name="$(nw)_ps_$(i)",
-            start = comp_start_value(ref(pm, nw, :prosumer, i), ["ps_start", "ps"], c, 0)
+    psp = var(pm, nw)[:psp] = Dict(i => JuMP.@variable(pm.model,
+            [c in connections[i]], base_name="$(nw)_psp_$(i)",
+            start = comp_start_value(ref(pm, nw, :prosumer, i), "psp_start", c, 0.0)
         ) for i in ids(pm, nw, :prosumer)
     )
-    if bounded
-        for (i,prosumer) in ref(pm, nw, :prosumer)
-            if haskey(prosumer, "discharge_rating")
-                for (idx,c) in enumerate(connections[i])
-                    set_lower_bound(ps[i][c], - prosumer["discharge_rating"])
-                end
-            end
-            if haskey(prosumer, "charge_rating")
-                for (idx,c) in enumerate(connections[i])
-                    set_upper_bound(ps[i][c], prosumer["charge_rating"])
-                end
-            end
-        end
-    end
+    
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :psp, ids(pm, nw, :prosumer), psp)
+end
 
-    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :ps, ids(pm, nw, :prosumer), ps)
+
+function variable_prosumer_shared_energy(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    p_shared = var(pm, nw)[:p_shared] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_p_shared",
+        start = comp_start_value(ref(pm, nw, :prosumer, i), "p_shared", 0.0)
+    )
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :p_shared, ids(pm, nw, :prosumer), p_shared)
 end
 
 
 ""
-function variable_mc_prosumer_power_imaginary(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+function variable_mc_prosumer_storage_power_imaginary(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
     connections = Dict(i => prosumer["connections"] for (i,prosumer) in ref(pm, nw, :prosumer))
-    qs = var(pm, nw)[:qs] = Dict(i => JuMP.@variable(pm.model,
-            [c in connections[i]], base_name="$(nw)_qs_$(i)",
-            start = comp_start_value(ref(pm, nw, :prosumer, i), ["qs_start", "qs"], c, 0.0)
+    qsp = var(pm, nw)[:qsp] = Dict(i => JuMP.@variable(pm.model,
+            [c in connections[i]], base_name="$(nw)_qsp_$(i)",
+            start = comp_start_value(ref(pm, nw, :prosumer, i), "qsp_start", c, 0.0)
         ) for i in ids(pm, nw, :prosumer)
     )
 
     if bounded
-        for (i,prosumer) in ref(pm, nw, :prosumer)
-            if haskey(prosumer, "discharge_rating")
-                for (idx,c) in enumerate(connections[i])
-                    set_lower_bound(qs[i][c], - prosumer["discharge_rating"])
-                end
-            end
-            if haskey(prosumer, "charge_rating")
-                for (idx,c) in enumerate(connections[i])
-                    set_upper_bound(qs[i][c], prosumer["charge_rating"])
-                end
+        for i in ids(pm, nw, :prosumer)
+            for (idx, c) in enumerate(connections[i])
+                set_lower_bound(qsp[i][c], 0)
+                set_upper_bound(qsp[i][c], 0)
             end
         end
     end
 
-    var(pm, nw)[:qs_bus] = Dict{Int, Any}()
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :qsp, ids(pm, nw, :prosumer), qsp)
+end
 
-    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :qs, ids(pm, nw, :prosumer), qs)
+
+
+# generation power
+function variable_mc_prosumer_gen_power_real(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    pgp = var(pm, nw)[:pgp] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_pgp",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), "pgp", 0.0)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_lower_bound(pgp[i], prosumer["pgmin"])
+            set_upper_bound(pgp[i], prosumer["pgmax"])
+        end
+    end
+
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :pgp, ids(pm, nw, :prosumer), pgp)
+end
+
+
+
+function variable_mc_prosumer_gen_power_imaginary(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    qgp = var(pm, nw)[:qgp] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_qgp",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), "qgp", 0.0)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_lower_bound(qgp[i], prosumer["qdmin"])
+            set_upper_bound(qgp[i], prosumer["qdmax"])
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :qgp, ids(pm, nw, :prosumer), qgp)
+end
+
+
+function variable_prosumer_load_real(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    pdp = var(pm, nw)[:pdp] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_pdp",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), ["pdp_start", "pdp"], 0.0)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_lower_bound(pdp[i], prosumer["pdmin"])
+            set_upper_bound(pdp[i], prosumer["pdmax"])
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :pdp, ids(pm, nw, :prosumer), pdp)
+end
+
+
+function variable_prosumer_load_imaginary(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    qdp = var(pm, nw)[:qdp] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_qdp",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), ["qdp_start", "qdp"], 0.0)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_lower_bound(qdp[i], prosumer["qdmin"])
+            set_upper_bound(qdp[i], prosumer["qdmax"])
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :qdp, ids(pm, nw, :prosumer), qdp)
+end
+
+
+""
+function variable_prosumer_charge(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    scp = var(pm, nw)[:scp] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_scp",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), ["scp_start", "scp"], 1)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_upper_bound(scp[i], prosumer["charge_rating"])
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :scp, ids(pm, nw, :prosumer), scp)
+end
+
+
+""
+function variable_prosumer_discharge(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    sdp = var(pm, nw)[:sdp] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_sdp",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), ["sd_start", "sdp"], 0.0)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_upper_bound(sdp[i], prosumer["discharge_rating"])
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :sdp, ids(pm, nw, :prosumer), sdp)
+end
+
+
+function variable_prosumer_energy(pm::AbstractUnbalancedPowerModel; nw::Int=nw_id_default, bounded::Bool=true, report::Bool=true)
+    sep = var(pm, nw)[:sep] = JuMP.@variable(pm.model,
+        [i in ids(pm, nw, :prosumer)], base_name="$(nw)_sep",
+        lower_bound = 0.0,
+        start = comp_start_value(ref(pm, nw, :prosumer, i), ["sep_start", "sep", "energy"], 0.0)
+    )
+
+    if bounded
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_upper_bound(sep[i], 0.999 * prosumer["energy_rating"])
+        end
+
+        for (i, prosumer) in ref(pm, nw, :prosumer)
+            set_lower_bound(sep[i], 0.001 * prosumer["energy_rating"])
+        end
+    end
+
+    report && _IM.sol_component_value(pm, pmd_it_sym, nw, :prosumer, :sep, ids(pm, nw, :prosumer), sep)
 end
